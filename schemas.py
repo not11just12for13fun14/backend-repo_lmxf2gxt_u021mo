@@ -1,48 +1,66 @@
 """
-Database Schemas
+Database Schemas for Public Banking Credit Card Complaint Portal
 
-Define your MongoDB collection schemas here using Pydantic models.
-These schemas are used for data validation in your application.
-
-Each Pydantic model represents a collection in your database.
-Model name is converted to lowercase for the collection name:
-- User -> "user" collection
-- Product -> "product" collection
-- BlogPost -> "blogs" collection
+Each Pydantic model represents a collection in MongoDB.
+Collection name = lowercase class name.
 """
 
-from pydantic import BaseModel, Field
-from typing import Optional
+from pydantic import BaseModel, Field, EmailStr
+from typing import Optional, Literal, List
+from datetime import datetime
 
-# Example schemas (replace with your own):
-
+# User and Auth
 class User(BaseModel):
-    """
-    Users collection schema
-    Collection name: "user" (lowercase of class name)
-    """
     name: str = Field(..., description="Full name")
-    email: str = Field(..., description="Email address")
-    address: str = Field(..., description="Address")
-    age: Optional[int] = Field(None, ge=0, le=120, description="Age in years")
-    is_active: bool = Field(True, description="Whether user is active")
+    email: EmailStr = Field(..., description="Email address")
+    password_hash: str = Field(..., description="BCrypt hash of the password")
+    role: Literal["user", "operator", "admin"] = Field("user", description="Access level")
+    avatar_url: Optional[str] = Field(None, description="Profile avatar URL")
+    is_active: bool = Field(True, description="Whether the user is active")
 
-class Product(BaseModel):
-    """
-    Products collection schema
-    Collection name: "product" (lowercase of class name)
-    """
-    title: str = Field(..., description="Product title")
-    description: Optional[str] = Field(None, description="Product description")
-    price: float = Field(..., ge=0, description="Price in dollars")
-    category: str = Field(..., description="Product category")
-    in_stock: bool = Field(True, description="Whether product is in stock")
+# Complaint (Pengaduan)
+class Complaint(BaseModel):
+    user_id: str = Field(..., description="ID of the submitting user")
+    title: str = Field(..., description="Complaint title")
+    category: Literal[
+        "limit", "tagihan", "kartu_hilang", "penipuan", "biaya", "lainnya"
+    ] = Field("lainnya", description="Complaint category")
+    description: str = Field(..., description="Detailed description of the complaint")
+    attachments: List[str] = Field(default_factory=list, description="Attachment URLs")
+    status: Literal["baru", "diproses", "selesai", "ditolak"] = Field(
+        "baru", description="Complaint status workflow"
+    )
+    assigned_to: Optional[str] = Field(None, description="Operator user ID handling the complaint")
+    priority: Literal["rendah", "sedang", "tinggi"] = Field("sedang")
+    sla_due_at: Optional[datetime] = Field(None, description="SLA due time")
+    notes: List[dict] = Field(default_factory=list, description="Operator/admin notes")
 
-# Add your own schemas here:
-# --------------------------------------------------
+# FAQ
+class Faq(BaseModel):
+    question: str
+    answer: str
+    is_active: bool = True
 
-# Note: The Flames database viewer will automatically:
-# 1. Read these schemas from GET /schema endpoint
-# 2. Use them for document validation when creating/editing
-# 3. Handle all database operations (CRUD) directly
-# 4. You don't need to create any database endpoints!
+# News / Info
+class News(BaseModel):
+    title: str
+    content: str
+    cover_image: Optional[str] = None
+    published_at: Optional[datetime] = None
+    is_published: bool = False
+
+# Contact messages
+class ContactMessage(BaseModel):
+    name: str
+    email: EmailStr
+    subject: str
+    message: str
+    handled: bool = False
+
+# Audit Log (optional helper)
+class AuditLog(BaseModel):
+    actor_id: str
+    action: str
+    resource: str
+    resource_id: Optional[str] = None
+    metadata: dict = {}
